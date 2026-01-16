@@ -45,14 +45,10 @@ mail = Mail(app)
 
 # 4. 執行資料庫初始化與其他配置
 init_db() 
-API_KEY = "ca34a7978533fa7972b9d01f" 
-NEWS_API_KEY = "pub_d14ba91d8e3a4ec68c350a1cf837b174"
 # 設定你的 API Key
 # 將下方字串換成你剛剛複製的那串金鑰
-genai.configure(api_key="AIzaSyB_6dLiYab4mmZmWzE-y7ZoNAQzuHfbJFM")
 # 設定你的 API Key
-YOUTUBE_API_KEY = "AIzaSyAMXOxG8fscFVxPgBOwinsmNIeFZwUYI7k"
-exchange_rate_API_Key = "ca34a7978533fa7972b9d01f" 
+
 
 def get_ai_model():
     """強制使用穩定版 v1 端點，避開 404 錯誤"""
@@ -1750,4 +1746,5 @@ def repair_database_typos():
 
 
 if __name__ == '__main__':
+
     app.run(debug=True)
