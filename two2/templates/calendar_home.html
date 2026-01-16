@@ -1,0 +1,788 @@
+{% extends "base.html" %}
+{% block content %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+<meta name="referrer" content="no-referrer">
+<style>
+    /* 全域設定 */
+    body {
+        background-color: #f4f7f9 !important;
+        font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+        overflow-x: hidden;
+    }
+
+    /* 1. 星期標題 */
+    .fc-col-header-cell-cushion {
+        color: #000000 !important;
+        text-decoration: none !important;
+        font-weight: 800 !important;
+        font-size: 0.95rem;
+    }
+
+    /* 2. 萬年曆容器 */
+    #calendar {
+        user-select: none;
+        background: #ffffff;
+        border-radius: 24px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        padding: 10px;
+        height: 700px;
+    }
+
+    .fc-scroller {
+        overflow: hidden !important;
+    }
+
+
+    .fc-v-event,
+    .fc-h-event {
+        background-color: transparent !important;
+        border: none !important;
+    }
+
+    /* 點擊日期高亮 */
+    .selected-day {
+        background-color: #f0f7ff !important;
+        box-shadow: inset 0 0 0 2px #007bff !important;
+        border-radius: 8px;
+    }
+
+    /* 格內數字樣式 */
+    .fc-daygrid-day-number {
+        color: #333 !important;
+        text-decoration: none !important;
+        font-weight: 600;
+        padding: 10px !important;
+    }
+
+    .cal-summary {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-align: right;
+        padding: 0 8px 5px 0;
+    }
+
+    .text-exp {
+        color: #ff4757;
+    }
+
+    .text-inc {
+        color: #2ed573;
+    }
+
+    .text-todo {
+        color: #1e90ff;
+    }
+
+    /* 3. 右側小卡美化 */
+    .right-card {
+        border-radius: 24px;
+        border: none;
+        background: #ffffff;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .right-header {
+        padding: 30px 20px;
+        border-bottom: 1px solid #f1f2f6;
+    }
+
+    .btn-action {
+        border: 2px solid #f1f2f6;
+        color: #57606f;
+        font-size: 0.85rem;
+        font-weight: 700;
+        border-radius: 12px;
+        transition: 0.3s;
+        background: #ffffff;
+    }
+
+    .btn-action:hover {
+        background: #f1f2f6;
+        color: #2f3542;
+    }
+
+    .item-row {
+        background: #ffffff !important;
+        border-radius: 20px;
+        border: 1px solid #eef2f7;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        padding: 18px;
+        margin-bottom: 15px;
+    }
+
+    .item-row:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .indicator {
+        width: 6px;
+        border-radius: 10px;
+        margin-right: 15px;
+    }
+
+    .bg-exp {
+        background: #ff4757;
+    }
+
+    .bg-inc {
+        background: #2ed573;
+    }
+
+    .bg-todo {
+        background: #1e90ff;
+    }
+
+    /* 讓日曆文字換行 */
+    .fc-event-main {
+        white-space: pre-wrap !important;
+        font-size: 0.85em;
+        line-height: 1.4;
+    }
+
+    /* 新聞輪播條優化 */
+    .news-card {
+        transition: all 0.3s ease;
+        border: 1px solid #eef2f7 !important;
+    }
+
+    .news-card:hover {
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    #newsBox .carousel-item a:hover .fw-bold {
+        color: #007bff !important;
+        text-decoration: underline;
+    }
+
+    /* 限制標題行數 */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="card news-card mb-4 border-0 shadow-sm overflow-hidden" style="border-radius: 24px;">
+        <div id="newsCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+            <div class="carousel-inner" id="newsBox">
+                <div class="carousel-item active">
+                    <div class="p-5 text-center text-muted">📡 正在獲取旅遊情報...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div id='calendar'></div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card right-card h-100">
+                <div class="right-header text-center">
+                    <div id="viewDateDisplay" class="text-muted small fw-bold mb-1">正在載入...</div>
+                    <h4 class="fw-bold mb-4">當日記錄摘要</h4>
+                    <div class="d-flex gap-2 flex-wrap"> <button class="btn btn-action flex-fill"
+                            onclick="openModal('expense')">-支出</button>
+                        <button class="btn btn-action flex-fill" onclick="openModal('income')">+收入</button>
+                        <button class="btn btn-action flex-fill" onclick="openModal('todo')">代辦</button>
+                        <button class="btn btn-action flex-fill" style="border-color: #6c5ce7; color: #6c5ce7;"
+                            onclick="openRecurringModal()">
+                            <i class="bi bi-arrow-repeat"></i> 固定
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" id="itemList" style="max-height: 500px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="recurringModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 28px;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="fw-bold m-0">設定固定週期記帳</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">收支類型</label>
+                    <select id="rType" class="form-select border-0 shadow-none" style="background: #f8f9fa;">
+                        <option value="expense">固定支出</option>
+                        <option value="income">固定收入</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">每月扣款/入帳日 (1-31)</label>
+                    <input type="number" id="rDay" class="form-control border-0 shadow-none"
+                        style="background: #f8f9fa;" min="1" max="31" value="1">
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">項目名稱</label>
+                    <input type="text" id="rContent" class="form-control border-0 shadow-none"
+                        style="background: #f8f9fa;" placeholder="例如：房租、訂閱費">
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">金額 ($)</label>
+                    <input type="number" id="rAmount" class="form-control border-0 shadow-none"
+                        style="background: #f8f9fa;">
+                </div>
+                <div class="alert alert-info border-0 small mb-0" style="border-radius: 12px;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    系統將從<b>當前選擇的月份</b>開始，每月自動新增一筆紀錄直到<b>今年年底</b>。
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button class="btn btn-dark w-100 py-3 fw-bold"
+                    style="border-radius: 16px; background: #6c5ce7; border:none;"
+                    onclick="handleSaveRecurring()">確認設定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 28px;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 id="modalTitle" class="fw-bold m-0">新增記錄</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="fId"><input type="hidden" id="fType">
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">選擇分類</label>
+                    <select id="fCategory" class="form-select form-select-lg border-light-subtle shadow-none"
+                        style="background: #f8f9fa;"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">名稱 / 描述</label>
+                    <input type="text" id="fContent"
+                        class="form-control form-control-lg border-light-subtle shadow-none"
+                        style="background: #f8f9fa;">
+                </div>
+                <div id="amountInputGroup" class="mb-3">
+                    <label class="small text-muted mb-2 fw-bold">金額 ($)</label>
+                    <input type="number" id="fAmount"
+                        class="form-control form-control-lg border-light-subtle shadow-none"
+                        style="background: #f8f9fa;">
+                </div>
+                <div class="mb-2">
+                    <label class="small text-muted mb-2 fw-bold">備註 (可選)</label>
+                    <textarea id="fNote" class="form-control border-light-subtle shadow-none" rows="2"
+                        style="background: #f8f9fa;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius: 16px;"
+                    onclick="handleSave()">儲存記錄</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editEventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius: 24px; overflow: hidden; border: none;">
+            <div class="modal-header bg-primary text-white p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-geo-alt-fill me-2"></i> 編輯旅遊行程</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="edit-event-id">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-muted">日期</label>
+                        <input type="date" id="edit-date" class="form-control border-0 bg-light" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-muted">分類</label>
+                        <input type="text" id="edit-category" class="form-control border-0 bg-light" value="旅遊行程"
+                            readonly>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">行程詳情 (支援多行文字)</label>
+                    <textarea id="edit-content" class="form-control border-0 bg-light" rows="10"
+                        style="white-space: pre-wrap; line-height: 1.6; border-radius: 15px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4">
+                <button type="button" class="btn btn-light px-4 py-2 fw-bold" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-outline-danger px-4 py-2 fw-bold"
+                    onclick="deleteEvent()">刪除此日</button>
+                <button type="button" class="btn btn-primary px-5 py-2 fw-bold" style="border-radius: 12px;"
+                    onclick="updateTripEvent()">儲存修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let calendar;
+    let activeDate = new Date().toISOString().split('T')[0];
+
+    const categories = {
+        expense: ['飲食', '妝髮', '娛樂', '交通', '醫療', '房租', '生活用品', '其他'],
+        income: ['薪水', '獎金', '津貼', '兼職', '投資', '利息', '其他'],
+        todo: ['待辦事項', '重要提醒', '旅遊行程', '其他']
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const calendarEl = document.getElementById('calendar');
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'zh-tw',
+            headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+            contentHeight: 'auto',
+            events: '/api/get_events',
+
+            // --- 新增這段：當月份切換時執行 ---
+            // --- 修正後的 datesSet：切換月份自動更新右側 ---
+            datesSet: function (info) {
+                // 1. 抓取標題中的年月（你原本的邏輯）
+                const title = info.view.title;
+                const matches = title.match(/\d+/g);
+                if (matches && matches.length >= 2) {
+                    window.currentYear = matches[0];
+                    window.currentMonth = matches[1];
+                }
+
+                // 2. 💡 關鍵點：取得該月份的第一天 (info.view.currentStart)
+                const viewDate = info.view.currentStart;
+                const y = viewDate.getFullYear();
+                const m = String(viewDate.getMonth() + 1).padStart(2, '0');
+                const d = String(viewDate.getDate()).padStart(2, '0');
+
+                // 3. 更新全域 activeDate 為該月 1 號 (例如 2026-02-01)
+                activeDate = `${y}-${m}-${d}`;
+
+                // 4. 更新右側面板
+                updateRightPanel();
+
+                // 5. 視覺美化：移除舊的高亮，並幫 1 號加上選中框
+                setTimeout(() => {
+                    document.querySelectorAll('.fc-daygrid-day').forEach(el => el.classList.remove('selected-day'));
+                    const firstDayEl = document.querySelector(`.fc-daygrid-day[data-date="${activeDate}"]`);
+                    if (firstDayEl) firstDayEl.classList.add('selected-day');
+                }, 50);
+            },
+
+            dateClick: function (info) {
+                document.querySelectorAll('.fc-daygrid-day').forEach(el => el.classList.remove('selected-day'));
+                info.dayEl.classList.add('selected-day');
+                activeDate = info.dateStr;
+                updateRightPanel();
+            },
+            eventContent: function (arg) {
+                let exp = arg.event.extendedProps.total_exp || 0;
+                let inc = arg.event.extendedProps.total_inc || 0;
+                let todo = arg.event.extendedProps.has_todo || 0;
+                let html = `<div class="cal-summary">`;
+                if (exp > 0) html += `<div class="text-exp">-$${exp}</div>`;
+                if (inc > 0) html += `<div class="text-inc">+$${inc}</div>`;
+                if (todo) html += `<div class="text-todo">📌</div>`;
+                html += `</div>`;
+                return { html: html };
+            }
+        });
+        calendar.render();
+        updateRightPanel();
+        loadNews();
+        // 當 recurringModal 被隱藏（關閉）時，自動重置表單
+        const recModal = document.getElementById('recurringModal');
+        recModal.addEventListener('hidden.bs.modal', function () {
+            const form = recModal.querySelector('form');
+            if (form) {
+                form.reset();
+            }
+            // 確保所有 input 都被清空
+            recModal.querySelectorAll('input').forEach(input => {
+                if (input.type !== 'submit' && input.type !== 'button') {
+                    input.value = '';
+                }
+            });
+        });
+    });
+
+    // 控制通用彈窗開啟
+    function openModal(type, data = null) {
+        document.getElementById('fType').value = type;
+        document.getElementById('fId').value = data ? data.id : '';
+        document.getElementById('fContent').value = data ? data.content || '' : '';
+        document.getElementById('fAmount').value = data ? data.amount || '' : '';
+        document.getElementById('fNote').value = data ? data.note || '' : '';
+
+        const catSelect = document.getElementById('fCategory');
+        catSelect.innerHTML = categories[type].map(c => `<option value="${c}" ${data && data.category === c ? 'selected' : ''}>${c}</option>`).join('');
+
+        document.getElementById('amountInputGroup').style.display = (type === 'todo') ? 'none' : 'block';
+        document.getElementById('modalTitle').innerText = (data ? "修改" : "新增") + (type === 'expense' ? '支出' : type === 'income' ? '收入' : '事項');
+        new bootstrap.Modal(document.getElementById('eventModal')).show();
+    }
+
+    // 控制旅遊行程彈窗開啟
+    function openEditTripModal(data) {
+        // 確保這些 ID 存在於你的 HTML 中
+        const idEl = document.getElementById('edit-event-id');
+        const dateEl = document.getElementById('edit-date');
+        const contentEl = document.getElementById('edit-content');
+
+        if (idEl) idEl.value = data.id;
+
+        // 優先使用資料庫回傳的日期，若無則用目前選取的 activeDate
+        if (dateEl) dateEl.value = data.date || activeDate;
+
+        // 內容填充，處理雙重轉義的換行符
+        if (contentEl) {
+            contentEl.value = (data.content || "").replace(/\\n/g, '\n');
+        }
+
+        new bootstrap.Modal(document.getElementById('editEventModal')).show();
+    }
+
+    // 儲存通用記錄 (強化防呆版)
+    async function handleSave() {
+        const fType = document.getElementById('fType').value;
+        const fContent = document.getElementById('fContent').value.trim();
+        const fAmount = document.getElementById('fAmount').value;
+        const fId = document.getElementById('fId').value;
+
+        // 1. 內容必填檢查
+        if (!fContent) {
+            alert("⚠️ 請輸入名稱或描述！");
+            return;
+        }
+
+        // 2. 金額防呆 (僅針對支出與收入)
+        if (fType !== 'todo') {
+            if (fAmount === "" || isNaN(fAmount)) {
+                alert("⚠️ 請輸入有效的金額！");
+                return;
+            }
+            if (parseFloat(fAmount) < 0) {
+                alert("⚠️ 金額不能為負數！");
+                return;
+            }
+        }
+
+        const payload = {
+            id: fId,
+            type: fType,
+            category: document.getElementById('fCategory').value,
+            content: fContent,
+            amount: fType === 'todo' ? 0 : parseFloat(fAmount), // 轉為數字
+            note: document.getElementById('fNote').value.trim(),
+            date: activeDate
+        };
+
+        const res = await fetch('/api/save_event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert("✨ 記錄儲存成功！");
+            bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+            calendar.refetchEvents();
+            updateRightPanel();
+        } else {
+            alert("❌ 儲存失敗：" + result.message);
+        }
+    }
+
+    // 儲存旅遊行程修改
+    async function updateTripEvent() {
+        const e_id = document.getElementById('edit-event-id').value;
+        const e_content = document.getElementById('edit-content').value.trim(); // 確保抓到 text area
+        const e_date = document.getElementById('edit-date').value;
+
+        if (!e_content) {
+            alert("請輸入行程描述內容");
+            return;
+        }
+
+        const payload = {
+            id: e_id,
+            content: e_content,
+            date: e_date,
+            category: '旅遊行程',
+            type: 'todo',
+            amount: 0,
+            note: 'AI 行程更新'
+        };
+
+        const res = await fetch('/api/save_event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert("✅ 行程已更新");
+            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+            calendar.refetchEvents();
+            updateRightPanel();
+        } else {
+            alert("❌ 儲存失敗：" + result.message);
+        }
+    }
+
+
+    // 刪除按鈕 (用於行程 Modal)
+    function deleteEvent() {
+        const id = document.getElementById('edit-event-id').value;
+        deleteItem(id).then(() => {
+            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+        });
+    }
+
+    // 尋找 updateRightPanel 函式，修改 fetching 之後的部分
+    async function updateRightPanel() {
+        document.getElementById('viewDateDisplay').innerText = activeDate;
+        const res = await fetch(`/api/get_events?date=${activeDate}`);
+        const rawData = await res.json();
+
+        // 🟢 關鍵修正：排除掉後端標記為已刪除的項目
+        const data = rawData.filter(i => i.note !== 'DELETED');
+        const list = document.getElementById('itemList');
+
+        // 修改 updateRightPanel 內的 data.map 迴圈處
+        list.innerHTML = data.map(i => {
+            // 確保 i.amount 是數字，避免 undefined 顯示在畫面上
+            const amount = i.amount || 0;
+
+            // 統一日期與欄位
+            const safeItem = {
+                ...i,
+                amount: amount,
+                date: i.event_date || activeDate
+            };
+
+            // 處理 JSON 轉義，避免 content 內的特殊字元弄壞 HTML
+            const itemJson = JSON.stringify(safeItem).replace(/"/g, '&quot;');
+
+            const isTrip = i.category === '旅遊行程';
+            const isRecurring = i.recurring_task_id != null; // 判斷是否為自動化帳目
+            const colorBg = i.type === 'expense' ? 'bg-exp' : (i.type === 'income' ? 'bg-inc' : 'bg-todo');
+            const colorText = i.type === 'expense' ? 'text-exp' : (i.type === 'income' ? 'text-inc' : 'text-todo');
+            const editAction = isTrip ? `openEditTripModal(${itemJson})` : `openModal('${i.type}', ${itemJson})`;
+
+            return `
+<div class="item-row d-flex align-items-center">
+    <div class="indicator ${colorBg}" style="height: 50px;"></div>
+    <div class="flex-grow-1">
+        <div class="small text-muted fw-bold">
+            ${i.category} ${isRecurring ? '<span class="badge bg-secondary">🔄 自動</span>' : ''}
+        </div>
+        <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">${i.content}</div>
+        <div class="mt-2">
+            <button class="btn btn-link btn-sm text-primary p-0 me-3 text-decoration-none fw-bold" onclick="${editAction}">
+                <i class="bi bi-pencil-square"></i> 編輯
+            </button>
+            <button class="btn btn-link btn-sm text-danger p-0 me-3 text-decoration-none fw-bold" onclick="deleteItem('${i.id}')">
+                <i class="bi bi-trash"></i> 刪除此筆
+            </button>
+            ${isRecurring ? `
+            <button class="btn btn-link btn-sm text-dark p-0 text-decoration-none fw-bold" onclick="deleteRecurringRule('${i.recurring_task_id}')">
+                <i class="bi bi-x-circle"></i> 刪除規則
+            </button>` : ''}
+        </div>
+    </div>
+    <div class="text-end fw-bold fs-5 ${colorText}">
+        ${i.type === 'todo' ? '📌' : (i.type === 'expense' ? '-' : '+') + '$' + i.amount}
+    </div>
+</div>`;
+        }).join('') || '<div class="text-center py-5 text-muted fw-bold">📅 今日無任何記錄</div>';
+    }
+
+    async function deleteItem(id) {
+        if (!confirm("確定要刪除這項紀錄嗎？")) return;
+
+        try {
+            const res = await fetch('/api/delete_event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                alert("已成功刪除！");
+                // 這裡不要用 location.reload()，改用以下兩行可以實現無刷更新
+                calendar.refetchEvents();
+                updateRightPanel();
+            } else {
+                alert("刪除失敗：" + data.message);
+            }
+        } catch (err) {
+            console.error("網路連線錯誤:", err);
+            alert("網路連線錯誤");
+        }
+    }
+
+    async function loadNews() {
+        try {
+            const box = document.getElementById('newsBox');
+            if (!box) return;
+
+            const res = await fetch('/api/get_news');
+            const data = await res.json();
+
+            // 檢查後端是否真的有回傳資料
+            if (data.results && data.results.length > 0) {
+                let htmlContent = "";
+
+                data.results.forEach((n, i) => {
+                    // 1. 處理圖片網址，確保它是 https
+                    let img = n.image_url;
+                    if (img && img.startsWith('//')) img = 'https:' + img;
+
+                    // 2. 隨機風景備用圖 (Unsplash)
+                    const fallbackImg = `https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80`;
+
+                    htmlContent += `
+                <div class="carousel-item ${i === 0 ? 'active' : ''}">
+                    <a href="${n.link}" target="_blank" class="text-decoration-none d-flex align-items-center" 
+                    style="height:150px; background:#fff; border-radius: 15px; overflow: hidden;">
+                        <div style="width:220px; height:150px; overflow:hidden; flex-shrink:0; background: #eee;">
+                            <img src="${img}" 
+                                class="h-100 w-100" 
+                                style="object-fit:cover; transition: transform 0.5s;"
+                                referrerpolicy="no-referrer"
+                                onmouseover="this.style.transform='scale(1.1)'"
+                                onmouseout="this.style.transform='scale(1)'"
+                                onerror="this.onerror=null; this.src='${fallbackImg}';">
+                        </div>
+                        <div class="p-3 flex-grow-1" style="min-width: 0;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger px-3" style="font-size:0.7rem;">🔥 最新情報</span>
+                                <small class="text-muted fw-bold" style="font-size: 0.75rem;"><i class="bi bi-newspaper me-1"></i>${n.source_id}</small>
+                            </div>
+                            <div class="fw-bold text-dark line-clamp-2" style="font-size: 1rem; line-height: 1.5; letter-spacing: 0.3px;">
+                                ${n.title}
+                            </div>
+                        </div>
+                    </a>
+                </div>`;
+                });
+
+                box.innerHTML = htmlContent;
+
+                // 重新初始化輪播組件
+                const carouselEl = document.querySelector('#newsCarousel');
+                if (carouselEl) {
+                    new bootstrap.Carousel(carouselEl, {
+                        interval: 4000,
+                        ride: 'carousel'
+                    });
+                }
+            } else {
+                box.innerHTML = '<div class="carousel-item active"><div class="p-5 text-center text-muted">目前暫無更新情報</div></div>';
+            }
+        } catch (e) {
+            console.error("News Load Error:", e);
+            document.getElementById('newsBox').innerHTML = '<div class="carousel-item active"><div class="p-5 text-center text-danger">⚠️ 情報加載失敗</div></div>';
+        }
+    }
+
+    // 打開固定記帳 Modal
+    function openRecurringModal() {
+        const modalElement = document.getElementById('recurringModal');
+
+        // 1. 找到 Modal 裡面的 Form 並重置
+        const form = modalElement.querySelector('form');
+        if (form) {
+            form.reset();
+        }
+
+        // 2. 針對沒有被 form.reset() 清除的隱藏欄位或特殊欄位手動清空
+        // 例如：如果你有儲存 ID 的隱藏欄位，一定要清掉，否則「新增」會變成「編輯」
+        const idInput = modalElement.querySelector('input[type="hidden"]');
+        if (idInput) {
+            idInput.value = "";
+        }
+
+        // 3. 顯示 Modal
+        const modalInstance = new bootstrap.Modal(modalElement);
+        modalInstance.show();
+    }
+
+    // 處理固定記帳儲存
+    async function handleSaveRecurring() {
+        const type = document.getElementById('rType').value;
+        const content = document.getElementById('rContent').value.trim();
+        const amount = document.getElementById('rAmount').value;
+        const day = document.getElementById('rDay').value;
+
+        if (!content || !amount || !day) {
+            alert("⚠️ 請填寫完整資訊！");
+            return;
+        }
+
+        const payload = {
+            type: type,
+            category: (type === 'expense' ? '固定支出' : '固定收入'),
+            content: content,
+            amount: parseFloat(amount),
+            day_of_month: parseInt(day),
+            start_date: activeDate // 使用日曆目前選中的日期（或該月）
+        };
+
+        try {
+            const res = await fetch('/api/save_recurring_fixed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (result.status === 'success') {
+                alert("✨ 設定成功！已自動填寫至年底。");
+                bootstrap.Modal.getInstance(document.getElementById('recurringModal')).hide();
+
+                // 重新整理日曆與列表
+                calendar.refetchEvents();
+                updateRightPanel();
+            } else {
+                alert("❌ 失敗：" + result.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("網路錯誤，請稍後再試");
+        }
+    }
+    async function deleteRecurringRule(taskId) {
+        if (!confirm("⚠️ 確定要刪除此『自動化規則』嗎？\n這會連同萬年曆上所有月份的相關帳目一併移除！")) return;
+
+        try {
+            // 網址要對應上面定義的 /delete_recurring_task/
+            const res = await fetch(`/delete_recurring_task/${taskId}`, {
+                method: 'POST'
+            });
+
+            const result = await res.json();
+            if (result.status === 'success') {
+                alert("✨ 規則及關聯帳目已全數移除！");
+                calendar.refetchEvents();
+                updateRightPanel();
+            } else {
+                alert("❌ 刪除失敗：" + result.message);
+            }
+        } catch (err) {
+            console.error("刪除規則錯誤:", err);
+        }
+    }
+</script>
+{% endblock %}

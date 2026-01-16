@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* 卡片美化：側邊藍條與懸停效果 */
+    .itinerary-card {
+        border-left: 5px solid #0d6efd !important;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+
+    .itinerary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+        background: #ffffff;
+    }
+
+    /* 限制小卡片只顯示第一行標題 */
+    .text-truncate-multiline {
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+
+<div class="container mt-4">
+    <h2 class="mb-4">🤖 AI 旅遊助手</h2>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">規劃新行程</h5>
+                    <div class="mb-3">
+                        <label class="form-label">目的地</label>
+                        <input type="text" id="dest" class="form-control" placeholder="例如：東京、巴黎...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">天數</label>
+                        <input type="number" id="days" class="form-control" value="3" min="1">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">旅行風格</label>
+                        <select id="style" class="form-select">
+                            <option value="放鬆休閒">放鬆休閒</option>
+                            <option value="吃貨行程">吃貨行程</option>
+                            <option value="文化古蹟">文化古蹟</option>
+                            <option value="瘋狂購物">瘋狂購物</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">開始日期</label>
+                        <input type="date" id="start_date" class="form-control">
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="planTrip()" id="planBtn">
+                        <span id="btnText">開始生成行程</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div id="loading" class="text-center d-none">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">AI 正在努力思考中，請稍候...</p>
+            </div>
+
+            <div id="result-container" class="d-none">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4>AI 建議行程 <small class="text-muted" style="font-size: 0.6em;">(點擊卡片看詳情)</small></h4>
+                    <button class="btn btn-success" onclick="importAll()">全部匯入萬年曆</button>
+                </div>
+                <div id="itinerary-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="itineraryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title" id="modalTitle">第 X 天行程</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalBody"
+                style="white-space: pre-wrap; line-height: 1.8; font-size: 1.1em; padding: 25px; background: #fff;">
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">關閉</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 確保變數定義在最外層
+    let currentItinerary = [];
+    let myModal;
+
+    // 頁面載入後初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalElement = document.getElementById('itineraryModal');
+        if (modalElement) {
+            myModal = new bootstrap.Modal(modalElement);
+        }
+    });
+
+    // 🟢 修正點 1: 確保函數前面有 async
+    async function planTrip() {
+        const dest = document.getElementById('dest').value.trim();
+        const days = document.getElementById('days').value;
+        const style = document.getElementById('style').value;
+        const start_date = document.getElementById('start_date').value;
+
+        // 基本防呆
+        if (!dest || !start_date) {
+            alert("請輸入目的地與日期！");
+            return;
+        }
+
+        // UI 狀態切換
+        const btn = document.getElementById('planBtn');
+        const loading = document.getElementById('loading');
+        const resultContainer = document.getElementById('result-container');
+
+        loading.classList.remove('d-none');
+        resultContainer.classList.add('d-none');
+        btn.disabled = true;
+
+        try {
+            // 🟢 修正點 2: 使用 await 獲取後端資料
+            const response = await fetch('/api/ai_plan_trip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dest, days, style, start_date })
+            });
+
+            const data = await response.json();
+
+            // 🟢 修正點 3: 判斷回傳是否為錯誤訊息
+            if (!response.ok || !Array.isArray(data)) {
+                // 如果後端位址驗證失敗或 AI 壞掉，會回傳 400/500
+                const errorMsg = data.message || "地址不正確或 AI 忙碌中";
+                alert("⚠️ " + errorMsg);
+                return;
+            }
+
+            // 成功獲取陣列，渲染結果
+            currentItinerary = data;
+            displayItinerary(data);
+
+        } catch (err) {
+            console.error("JS Error:", err);
+            alert("系統連線失敗，請檢查網路。");
+        } finally {
+            loading.classList.add('d-none');
+            btn.disabled = false;
+        }
+    }
+
+    function displayItinerary(list) {
+        const container = document.getElementById('itinerary-list');
+        container.innerHTML = '';
+
+        list.forEach((item, index) => {
+            const subTitleMatch = item.content.match(/【(.*?)】/);
+            const subTitle = subTitleMatch ? subTitleMatch[1] : "詳細行程";
+
+            const card = `
+            <div class="card mb-3 shadow-sm itinerary-card" onclick="showModal(${index})">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-primary fw-bold" style="font-size: 0.9em;">${item.date}</div>
+                        <div class="fw-bold text-dark">第 ${index + 1} 天：${subTitle}</div>
+                        <div class="text-muted text-truncate-multiline" style="font-size: 0.85em;">
+                            ${item.content.replace(/\\n/g, ' ')}
+                        </div>
+                    </div>
+                    <div class="ms-3 text-primary"><i class="bi bi-chevron-right"></i></div>
+                </div>
+            </div>`;
+            container.innerHTML += card;
+        });
+        document.getElementById('result-container').classList.remove('d-none');
+    }
+
+    function showModal(index) {
+        const item = currentItinerary[index];
+        if (item && myModal) {
+            document.getElementById('modalTitle').innerText = `第 ${index + 1} 天 (${item.date})`;
+            document.getElementById('modalBody').innerText = item.content.replace(/\\n/g, '\n');
+            myModal.show();
+        }
+    }
+
+   async function importAll() {
+    console.log("準備匯入的行程資料：", currentItinerary); // 👈 檢查這裡是否有兩筆資料，且日期不同
+    if (!confirm("確定匯入所有行程嗎？")) return;
+
+        // 取得按鈕顯示進度
+        const btn = document.querySelector("button[onclick='importAll()']");
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "匯入中...";
+
+        try {
+            for (const item of currentItinerary) {
+                // 注意：這裡的欄位要對應後端的 data.get('...')
+                const res = await fetch('/api/save_event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: item.date,      // 對應 date_str
+                        type: 'todo',          // 旅遊行程設為 todo
+                        category: '旅遊行程',
+                        content: item.content, // 對應 content
+                        amount: 0,             // 金額補 0
+                        note: 'AI 旅遊助手生成'
+                    })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.message || "儲存失敗");
+                }
+            }
+            alert("🎉 所有行程已成功匯入萬年曆！");
+            window.location.href = "/calendar"; // 導向萬年曆查看結果
+        } catch (err) {
+            console.error("匯入失敗:", err);
+            alert("❌ 匯入失敗：" + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
+</script>
+{% endblock %}

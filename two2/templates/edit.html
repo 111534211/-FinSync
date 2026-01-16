@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6"> <div class="card shadow-sm" style="border-radius: 20px;">
+                <div class="card-header bg-white py-3 border-0 text-center">
+                    <h5 class="mb-0 fw-bold" style="color: #0d6efd;">✏️ 編輯消費紀錄</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form action="/edit_expense/{{ e.id }}" method="POST" id="edit_form">
+                        
+                        <div class="mb-3">
+                            <label class="small fw-bold">歸類行程</label>
+                            <select name="folder_id" class="form-select">
+                                {% for f in folders %}
+                                <option value="{{ f.id }}" {% if f.id == e.folder_id %}selected{% endif %}>{{ f.folder_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="small fw-bold">日期</label>
+                                <input type="date" name="date" value="{{ e.date }}" class="form-control" required>
+                            </div>
+                            <div class="col">
+                                <label class="small fw-bold">項目名稱</label>
+                                <input type="text" name="description" value="{{ e.description }}" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small fw-bold">台幣金額</label>
+                            <input type="number" name="amount" id="edit_amount" value="{{ e.amount }}" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="small fw-bold">墊款人</label>
+                            <select name="payer" class="form-select">
+                                {% for m in members %}
+                                <option value="{{ m }}" {% if m == e.payer_name %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <input type="hidden" name="currency" value="{{ e.currency }}">
+                        <input type="hidden" name="foreign_amount" value="{{ e.foreign_amount }}">
+                        <div class="small text-info mb-2">
+                            原始外幣：{{ e.currency }} {{ e.foreign_amount }}
+                        </div>
+
+                        <label class="small fw-bold">分攤成員</label>
+                        <div class="p-3 border rounded bg-light">
+                            {% for m in members %}
+                            <div class="form-check">
+                                <input class="form-check-input splitter-check" type="checkbox" name="splitters" value="{{ m }}"
+                                    id="s_{{ m }}" {% if m in selected_splitters %}checked{% endif %}>
+                                <label class="form-check-label" for="s_{{ m }}">
+                                    {{ m }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div id="splitter_error" class="text-danger small mt-1" style="display:none;">請至少選擇一位成員！</div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-4 py-2 fw-bold">儲存並更新記錄</button>
+                        <a href="{{ url_for('index') }}" class="btn btn-link w-100 text-secondary text-decoration-none small">返回列表</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('edit_form').onsubmit = function (event) {
+        let isValid = true;
+
+        // 1. 金額檢查
+        const amountInput = document.getElementById('edit_amount');
+        if (!amountInput.value || parseFloat(amountInput.value) <= 0) {
+            alert("⚠️ 請輸入有效的金額！");
+            isValid = false;
+        }
+
+        // 2. 分攤者檢查
+        const checkedSplitters = document.querySelectorAll('.splitter-check:checked');
+        const errorMsg = document.getElementById('splitter_error');
+        if (checkedSplitters.length === 0) {
+            errorMsg.style.display = 'block';
+            alert("⚠️ 請至少選擇一位分攤成員！");
+            isValid = false;
+        } else {
+            errorMsg.style.display = 'none';
+        }
+
+        if (!isValid) {
+            event.preventDefault();
+        }
+        return isValid;
+    };
+</script>
+{% endblock %}

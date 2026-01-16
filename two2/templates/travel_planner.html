@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .ai-card {
+        border-radius: 20px;
+        border: none;
+        transition: 0.3s;
+    }
+
+    .ai-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .section-title {
+        border-left: 5px solid #0d6efd;
+        padding-left: 15px;
+        margin-bottom: 20px;
+        font-weight: 700;
+    }
+
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 9999;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .history-card {
+        cursor: pointer;
+        border-left: 4px solid #198754;
+        transition: 0.2s;
+    }
+
+    .history-card:hover {
+        background-color: #f8f9fa;
+    }
+
+    .countdown-timer {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #dc3545;
+        /* 紅色 */
+        background: #fff5f5;
+        padding: 2px 8px;
+        border-radius: 10px;
+        display: inline-block;
+        margin-top: 5px;
+    }
+
+    .status-expired {
+        color: #6c757d;
+        background: #f8f9fa;
+    }
+
+    /* 已出發的樣式 */
+</style>
+
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <h5 class="mt-3 fw-bold">正在為您規劃旅程...</h5>
+</div>
+
+<div class="container pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">✈️ 智能旅程準備中心</h2>
+        <span class="badge bg-info text-dark">Powered by Gemini AI</span>
+    </div>
+
+    <div class="card ai-card shadow-sm p-4 mb-4">
+        <form onsubmit="event.preventDefault(); askGemini();">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">目的地國家/城市</label>
+                    <input type="text" id="destInput" class="form-control form-control-lg" placeholder="例如：日本大阪"
+                        required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">遊玩天數</label>
+                    <input type="number" id="daysInput" class="form-control form-control-lg" value="5" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">出發日期</label>
+                    <input type="date" id="dateInput" class="form-control form-control-lg" required>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill">
+                        <i class="bi bi-magic"></i> 生成建議
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div id="resultArea" style="display: none;">
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <div class="card ai-card shadow-sm p-4 mb-4 bg-white">
+                    <h5 class="section-title text-primary">🌦️ 天氣與穿搭建議</h5>
+                    <div id="weatherContent" class="mb-4"></div>
+                    <h5 class="section-title text-warning"> Lantern 當地習俗與禁忌</h5>
+                    <div id="customsContent"></div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card ai-card shadow-sm p-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="section-title text-success mb-0">🧳 智能行李清單</h5>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="window.print()">
+                            <i class="bi bi-printer"></i> 列印清單
+                        </button>
+                    </div>
+                    <div id="packingListContent" class="row"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-5">
+
+    <div class="mt-4">
+        <h4 class="fw-bold mb-4"><i class="bi bi-archive me-2"></i>已保存的旅程</h4>
+        <div id="historyList" class="row g-3">
+        </div>
+    </div>
+</div>
+
+<script>
+    // 初始化：讀取歷史紀錄
+    document.addEventListener('DOMContentLoaded', loadHistory);
+
+    async function askGemini() {
+        const dest = document.getElementById('destInput').value;
+        const days = document.getElementById('daysInput').value;
+        const date = document.getElementById('dateInput').value;
+
+        document.getElementById('loadingOverlay').style.display = 'flex';
+
+        try {
+            const response = await fetch('/generate-travel-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ destination: dest, days: days, date: date })
+            });
+
+            const res = await response.json();
+
+            if (res.status === 'success') {
+                displayResult(res.data);
+                saveToStorage(dest, date, res.data); // 保存到本地
+            } else {
+                Swal.fire('錯誤', res.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('錯誤', 'AI 暫時離線，請檢查後端日誌', 'error');
+        } finally {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    }
+
+    // 渲染結果到畫面
+    function displayResult(data) {
+        document.getElementById('resultArea').style.display = 'block';
+
+        document.getElementById('weatherContent').innerHTML = `
+        <p class="mb-2"><strong>天氣概況：</strong>${data.weather_forecast}</p>
+        <div class="p-3 bg-light rounded-3 small"><strong>💡 穿搭建議：</strong><br>${data.outfit_suggestion}</div>
+    `;
+
+        document.getElementById('customsContent').innerHTML = data.customs.map(c => `
+        <div class="d-flex mb-2">
+            <i class="bi bi-info-circle-fill text-warning me-2"></i>
+            <span class="small">${c}</span>
+        </div>
+    `).join('');
+
+        document.getElementById('packingListContent').innerHTML = data.packing_list.map(item => `
+        <div class="col-md-6 mb-2">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox">
+                <label class="form-check-label small">${item}</label>
+            </div>
+        </div>
+    `).join('');
+
+        window.scrollTo({ top: document.getElementById('resultArea').offsetTop - 100, behavior: 'smooth' });
+    }
+
+    // ---------------- 儲存功能 ----------------
+
+    function saveToStorage(dest, date, fullData) {
+        let history = JSON.parse(localStorage.getItem('my_trips') || '[]');
+        const record = { id: Date.now(), dest, date, fullData };
+        history.unshift(record);
+        localStorage.setItem('my_trips', JSON.stringify(history));
+        loadHistory();
+    }
+
+    function loadHistory() {
+        const history = JSON.parse(localStorage.getItem('my_trips') || '[]');
+        const container = document.getElementById('historyList');
+
+        if (history.length === 0) {
+            container.innerHTML = '<div class="col-12 text-muted">目前還沒有儲存的紀錄。</div>';
+            return;
+        }
+
+        container.innerHTML = history.map(item => `
+        <div class="col-md-4">
+            <div class="card shadow-sm history-card p-3 position-relative">
+                <div onclick='displayResult(${JSON.stringify(item.fullData).replace(/'/g, "&apos;")})'>
+                    <h6 class="fw-bold mb-1">${item.dest}</h6>
+                    <small class="text-muted"><i class="bi bi-calendar-event me-1"></i>${item.date}</small>
+                </div>
+                <button class="btn btn-sm text-danger position-absolute top-0 end-0 m-2" onclick="deleteHistory(${item.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    }
+
+    function deleteHistory(id) {
+        event.stopPropagation(); // 防止觸發父層的 click 事件
+        Swal.fire({
+            title: '確定刪除？',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '刪除',
+            cancelButtonText: '取消'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let history = JSON.parse(localStorage.getItem('my_trips') || '[]');
+                history = history.filter(h => h.id !== id);
+                localStorage.setItem('my_trips', JSON.stringify(history));
+                loadHistory();
+            }
+        });
+    }
+    function loadHistory() {
+        const history = JSON.parse(localStorage.getItem('my_trips') || '[]');
+        const container = document.getElementById('historyList');
+
+        if (history.length === 0) {
+            container.innerHTML = '<div class="col-12 text-muted">目前還沒有儲存的紀錄。</div>';
+            return;
+        }
+
+        container.innerHTML = history.map(item => `
+        <div class="col-md-4">
+            <div class="card shadow-sm history-card p-3 position-relative">
+                <div onclick='displayResult(${JSON.stringify(item.fullData).replace(/'/g, "&apos;")})'>
+                    <h6 class="fw-bold mb-1">${item.dest}</h6>
+                    <div class="small text-muted mb-1">
+                        <i class="bi bi-calendar-event me-1"></i>${item.date}
+                    </div>
+                    <div class="countdown-timer" data-date="${item.date}">
+                        計算中...
+                    </div>
+                </div>
+                <button class="btn btn-sm text-danger position-absolute top-0 end-0 m-2" onclick="deleteHistory(${item.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+        // 渲染完後立即執行一次倒數計時更新
+        updateAllCountdowns();
+    }
+    // 每分鐘更新一次所有倒數計時
+    setInterval(updateAllCountdowns, 60000);
+
+    function updateAllCountdowns() {
+        const timers = document.querySelectorAll('.countdown-timer');
+        const now = new Date();
+
+        timers.forEach(timer => {
+            const targetDate = new Date(timer.getAttribute('data-date'));
+            // 將目標日期設為當天 00:00:00 進行比較
+            targetDate.setHours(0, 0, 0, 0);
+            now.setHours(0, 0, 0, 0);
+
+            const diffTime = targetDate - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 0) {
+                timer.innerHTML = `⏳ 還有 ${diffDays} 天出發`;
+                timer.classList.remove('status-expired');
+            } else if (diffDays === 0) {
+                timer.innerHTML = `🎉 今天出發！`;
+                timer.classList.remove('status-expired');
+                timer.style.color = '#198754'; // 綠色
+            } else {
+                timer.innerHTML = `✅ 已出發`;
+                timer.classList.add('status-expired');
+            }
+        });
+    }
+</script>
+{% endblock %}

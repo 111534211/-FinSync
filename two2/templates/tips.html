@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #4e73df;
+        --secondary-color: #f8f9fc;
+    }
+
+    body {
+        background-color: #f4f7f6;
+    }
+
+    /* 名言卡片樣式 */
+    .quote-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        border-left: 8px solid var(--primary-color);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        margin-bottom: 40px;
+        position: relative;
+    }
+
+    .quote-icon {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        font-size: 3rem;
+        color: #e3e6f0;
+    }
+
+    /* 影片卡片樣式 */
+    .video-card {
+        border: none;
+        border-radius: 15px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: white;
+        overflow: hidden;
+    }
+
+    .video-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #2e384d;
+        height: 2.8rem;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .topic-badge {
+        background-color: #e2e8f0;
+        color: #4a5568;
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+</style>
+
+<div class="container pb-5">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h1 class="fw-bold mb-2">💡 理財加油站</h1>
+            <span class="topic-badge">
+                <i class="fas fa-search me-1"></i> 探索主題：{{ topic }}
+            </span>
+        </div>
+        <button onclick="location.reload()" class="btn btn-primary rounded-pill px-4 shadow">
+            <i class="fas fa-sync-alt me-2"></i>換一組推薦
+        </button>
+    </div>
+
+    <div class="quote-card">
+        <i class="fas fa-quote-right quote-icon"></i>
+        <p class="h2 fw-bold text-dark">“ {{ quote_text }} ”</p>
+        <p class="text-end text-muted">— {{ quote_author }}</p>
+    </div>
+
+    <h4 class="fw-bold mb-4 mt-5"><i class="fab fa-youtube text-danger me-2"></i>為您精選的學習影片</h4>
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% if videos %}
+        {% for video in videos %}
+        <div class="col">
+            <div class="card h-100 video-card shadow-sm">
+                <div class="ratio ratio-16x9">
+                    <iframe src="https://www.youtube.com/embed/{{ video.id }}" title="YouTube video player"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowfullscreen></iframe>
+                </div>
+                <div class="card-body">
+                    <p class="video-title">{{ video.title|safe }}</p>
+                    <a href="https://www.youtube.com/watch?v={{ video.id }}" target="_blank"
+                        class="btn btn-sm btn-danger mt-2">
+                        <i class="fab fa-youtube"></i> 前往 YouTube 觀看
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

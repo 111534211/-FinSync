@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* 1. 全域質感提升 */
+    .card-dashboard {
+        border-radius: 20px;
+        border: none;
+        background: #fff;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
+    }
+
+    .stat-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #8898aa;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #32325d;
+    }
+
+    /* 2. AI 助手專屬樣式 */
+    .ai-card {
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        color: white;
+        overflow: hidden;
+        position: relative;
+        border: none;
+    }
+
+    .ai-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+
+    #aiContent {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(5px);
+        border-radius: 12px;
+        padding: 15px;
+        min-height: 80px;
+        border-left: 4px solid #fff;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    /* 3. 排行榜與列表優化 */
+    .rank-item {
+        padding: 12px 15px;
+        border-bottom: 1px solid #f8f9fa;
+        display: flex;
+        align-items: center;
+    }
+
+    .rank-item:last-child {
+        border: none;
+    }
+
+    .badge-rank {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .trend-container,
+    .pie-container {
+        position: relative;
+        width: 100%;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 text-dark">📊 數據分析與預算</h3>
+            <p class="text-muted small">追蹤消費趨勢與預算進度</p>
+        </div>
+        <button class="btn btn-dark btn-sm px-4 py-2 shadow-sm" style="border-radius: 10px;" onclick="setBudget()">
+            <i class="bi bi-pencil-square me-2"></i>設定預算
+        </button>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="card card-dashboard p-4 h-100">
+                <div class="stat-title mb-3">每月預算進度</div>
+                <div class="row align-items-end">
+                    <div class="col-md-7">
+                        <div class="d-flex align-items-baseline gap-2">
+                            <div class="stat-value" id="expDisplay">$0</div>
+                            <div class="text-muted small">/ <span id="budgetLimitDisplay">$20,000</span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-5 text-md-end">
+                        <div id="budgetNote" class="small fw-bold"></div>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 12px; border-radius: 10px;">
+                    <div id="budgetBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                        role="progressbar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card card-dashboard p-4 h-100 text-center">
+                <div class="stat-title mb-2">本月淨結餘</div>
+                <div id="netDisplay" class="stat-value mb-2">$0</div>
+                <div class="row border-top pt-3 mt-2">
+                    <div class="col-6 border-end">
+                        <small class="text-muted d-block">總收入</small>
+                        <span class="text-success fw-bold" id="totalInc">$0</span>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">總支出</small>
+                        <span class="text-danger fw-bold" id="totalExp">$0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-dashboard ai-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0 text-white"><i class="bi bi-stars me-2"></i>AI 智慧理財顧問</h5>
+                    <button class="btn btn-light btn-sm fw-bold px-3 shadow-sm" onclick="getAIAdvice()" id="aiBtn"
+                        style="border-radius: 8px;">
+                        開始智慧診斷
+                    </button>
+                </div>
+                <div id="aiContent" class="text-white">
+                    點擊按鈕，Gemini 將根據本月支出數據為您提供專屬理財建議...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card card-dashboard p-4">
+                <h6 class="fw-bold mb-4">近半年收支趨勢</h6>
+                <div class="trend-container" style="height: 300px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card card-dashboard p-4">
+                <h6 class="fw-bold mb-4">支出佔比分析</h6>
+                <div class="pie-container" style="height: 300px;">
+                    <canvas id="categoryPieChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card card-dashboard p-4">
+                <h6 class="fw-bold mb-4">支出排行 Top 5</h6>
+                <div id="topList"></div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card card-dashboard p-4">
+                <h6 class="fw-bold mb-4">分類數據明細</h6>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-3 border-0 rounded-start">分類項目</th>
+                                <th class="border-0 text-center">金額</th>
+                                <th class="border-0">佔比進度</th>
+                                <th class="pe-3 border-0 rounded-end text-end">平均單筆</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let trendChartInstance = null;
+    let pieChartInstance = null;
+    let currentBudget = parseFloat(localStorage.getItem('user_budget')) || 20000;
+
+    // 🚀 [關鍵修復]：新增前端防護鎖，防止同一次頁面載入期間重複呼叫發信 API
+    let warningSentInThisSession = false;
+
+    // 1. 獲取 URL 參數 (從萬年曆傳來的月份)
+    const urlParams = new URLSearchParams(window.location.search);
+    const filterYear = urlParams.get('year');
+    const filterMonth = urlParams.get('month');
+
+    // 2. 初始化載入數據
+    async function loadData() {
+        let apiUrl = '/api/analysis_data';
+        if (filterYear && filterMonth) {
+            apiUrl += `?year=${filterYear}&month=${filterMonth}`;
+        }
+
+        try {
+            const res = await fetch(apiUrl);
+            const data = await res.json();
+
+            if (data.error) throw new Error(data.error);
+
+            // A. 更新概覽數據
+            const summary = data.summary;
+            document.getElementById('totalInc').innerText = `$${summary.total_inc.toLocaleString()}`;
+            document.getElementById('totalExp').innerText = `$${summary.total_exp.toLocaleString()}`;
+            document.getElementById('expDisplay').innerText = `$${summary.total_exp.toLocaleString()}`;
+
+            const net = summary.balance;
+            const netEl = document.getElementById('netDisplay');
+            netEl.innerText = `${net >= 0 ? '' : '-'}$${Math.abs(net).toLocaleString()}`;
+            netEl.className = `stat-value mb-2 ${net >= 0 ? 'text-success' : 'text-danger'}`;
+
+            // B. 更新預算進度條
+            updateBudgetUI(summary.total_exp);
+
+            // C. 渲染支出排行
+            renderTopList(data.top_expenses);
+
+            // D. 渲染分類表格
+            renderCategoryTable(data.category_distribution, summary.total_exp);
+
+            // E. 渲染圖表
+            renderTrendChart(data.trend);
+            renderPieChart(data.category_distribution);
+
+        } catch (err) {
+            console.error("載入失敗:", err);
+            alert("無法載入數據，請檢查連線或稍後再試");
+        }
+    }
+
+    // 3. 預算進度條邏輯
+    function updateBudgetUI(totalExp) {
+        document.getElementById('budgetLimitDisplay').innerText = `$${currentBudget.toLocaleString()}`;
+        const percent = (totalExp / currentBudget) * 100;
+        const bar = document.getElementById('budgetBar');
+
+        bar.style.width = Math.min(percent, 100) + '%';
+
+        if (percent >= 100) {
+            bar.className = "progress-bar bg-danger progress-bar-striped";
+            document.getElementById('budgetNote').innerHTML = `<span class="text-danger">⚠️ 已超支</span>`;
+
+            // 🚀 [修正點]：加上判斷鎖，如果本次打開網頁已經跑過 trigger 了，就不再重複 fetch
+            if (!warningSentInThisSession) {
+                triggerBudgetWarning(totalExp, currentBudget);
+            }
+
+        } else if (percent >= 80) {
+            bar.className = "progress-bar bg-warning progress-bar-striped";
+            document.getElementById('budgetNote').innerHTML = `<span class="text-warning">接近上限</span>`;
+        } else {
+            bar.className = "progress-bar bg-success progress-bar-striped";
+            document.getElementById('budgetNote').innerHTML = `<span class="text-success">進度正常</span>`;
+            // 如果刪除資料後支出低於預算，則重置狀態，讓下次超標時還能發信
+            warningSentInThisSession = false;
+        }
+    }
+
+    // 4. 渲染支出排行
+    function renderTopList(items) {
+        const container = document.getElementById('topList');
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class="text-muted p-3 text-center small">本月尚無紀錄</div>';
+            return;
+        }
+
+        container.innerHTML = items.map((i, idx) => `
+            <div class="rank-item">
+                <div class="badge-rank ${idx < 3 ? 'bg-primary text-white' : 'bg-light text-muted'} me-3">${idx + 1}</div>
+                <div class="flex-grow-1">
+                    <div class="fw-bold small mb-0">${i.display_name}</div>
+                    <small class="text-muted">${i.category || '一般'}</small>
+                </div>
+                <div class="text-danger fw-bold small">-$${Math.abs(i.total).toLocaleString()}</div>
+            </div>
+        `).join('');
+    }
+
+    // 5. 渲染分類明細表格
+    function renderCategoryTable(categories, totalExp) {
+        const tbody = document.getElementById('categoryTableBody');
+        if (!categories || categories.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">無數據</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = categories.map(c => {
+            const percent = totalExp > 0 ? Math.round((c.total / totalExp) * 100) : 0;
+            return `
+                <tr>
+                    <td class="ps-3 fw-bold text-dark">${c.category}</td>
+                    <td class="text-center fw-bold">$${c.total.toLocaleString()}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height: 6px;">
+                                <div class="progress-bar bg-primary" style="width: ${percent}%"></div>
+                            </div>
+                            <small class="text-muted">${percent}%</small>
+                        </div>
+                    </td>
+                    <td class="pe-3 text-end text-muted small">$${c.total.toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 6. 圖表實作 (Chart.js)
+    function renderTrendChart(trendData) {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        if (trendChartInstance) trendChartInstance.destroy();
+
+        trendChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendData.map(d => d.month_label),
+                datasets: [
+                    { label: '收入', data: trendData.map(d => d.income), borderColor: '#2dce89', tension: 0.4, fill: false },
+                    { label: '支出', data: trendData.map(d => d.expense), borderColor: '#f5365c', tension: 0.4, fill: false }
+                ]
+            },
+            options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    function renderPieChart(categories) {
+        const ctx = document.getElementById('categoryPieChart').getContext('2d');
+        if (pieChartInstance) pieChartInstance.destroy();
+
+        pieChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: categories.map(c => c.category),
+                datasets: [{
+                    data: categories.map(c => c.total),
+                    backgroundColor: ['#5e72e4', '#2dce89', '#11cdef', '#fb6340', '#f5365c', '#adb5bd']
+                }]
+            },
+            options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '70%' }
+        });
+    }
+
+    // 7. AI 智慧診斷
+    async function getAIAdvice() {
+        const aiContent = document.getElementById('aiContent');
+        const aiBtn = document.getElementById('aiBtn');
+        aiBtn.disabled = true;
+        aiBtn.innerText = "正在思考中...";
+
+        try {
+            let aiUrl = '/api/ai_financial_advice';
+            if (filterYear && filterMonth) aiUrl += `?year=${filterYear}&month=${filterMonth}`;
+
+            const res = await fetch(aiUrl);
+            const data = await res.json();
+
+            if (data.advice) {
+                aiContent.innerHTML = data.advice.replace(/\n/g, '<br>');
+            } else {
+                aiContent.innerText = "無法生成建議，請確保本月有支出紀錄。";
+            }
+        } catch (err) {
+            aiContent.innerText = "❌ 診斷失敗，請稍後再試。";
+        } finally {
+            aiBtn.disabled = false;
+            aiBtn.innerText = "重新診斷";
+        }
+    }
+
+    // 8. 設定預算功能
+    function setBudget() {
+        const val = prompt("請輸入每月預算金額:", currentBudget);
+        if (val && !isNaN(val)) {
+            currentBudget = parseFloat(val);
+            localStorage.setItem('user_budget', currentBudget);
+            // 設定新預算後重置發信鎖，若新預算仍超標可再次觸發
+            warningSentInThisSession = false;
+            loadData();
+        }
+    }
+
+    // 9. 呼叫後端發送 Email 警告 (整合狀態鎖)
+    async function triggerBudgetWarning(exp, budget) {
+        // 這裡不需要 warningSentInThisSession 鎖了，交給後端判斷
+        try {
+            const res = await fetch('/api/send_budget_warning', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ exp: exp, budget: budget })
+            });
+            const data = await res.json();
+
+            if (data.status === 'sent') {
+                alert(`⚠️ 預算超標！警告郵件已發送至您的信箱。\n目前支出：$${exp.toLocaleString()}\n預算上限：$${budget.toLocaleString()}`);
+            } else {
+                // skipped 狀態不彈窗，避免干擾使用者
+                console.log("發信狀態:", data.message);
+            }
+        } catch (err) {
+            console.error("❌ 無法連接發信 API");
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadData);
+</script>
+{% endblock %}
